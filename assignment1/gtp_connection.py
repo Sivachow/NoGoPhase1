@@ -258,11 +258,57 @@ class GtpConnection:
     """
     def gogui_rules_final_result_cmd(self, args):
         """ Implement this function for Assignment 1 """
+        legal_moves = [];
+        freePoints = self.board.get_empty_points();
+        for nb in freePoints:
+            if(not self.__isCapture(point, color)):
+                if(self.is_legal(point, color)):
+                    legal_moves.append(1);
+        if(len(legal_moves) == 0):
+            if(self.board.current_player == 1):
+                self.respond('white');
+                return
+            else:
+                self.respond('black');
+                return;
         self.respond("unknown")
+        return;
 
+    def __isCapture(self, point, color):
+        opp_color = GoBoardUtil.opponent(color)
+        temp = self.board.copy();
+        neighbors = temp._neighbors(point);
+        temp.board[point] = color;
+        single_captures = []
+        single_capture = None
+        for nb in neighbors:
+            if temp.board[nb] == opp_color:
+                single_capture = temp._detect_and_process_capture(nb)
+                if single_capture != None:
+                    single_captures.append(single_capture)
+        if(len(single_captures) != 0):
+            return True;
+        else:
+            return False;
+
+
+        
     def gogui_rules_legal_moves_cmd(self, args):
         """ Implement this function for Assignment 1 """
-        self.respond()
+        board_color = args[0].lower()
+        color = color_to_int(board_color)
+        moves = [];
+        freePoints = self.board.get_empty_points();
+        for point in freePoints:
+            if(not self.__isCapture(point, color)):
+                if(self.board.is_legal(point, color)):
+                    moves.append[point];
+        gtp_moves = []
+        for move in moves:
+            coords = point_to_coord(move, self.board.size)
+            gtp_moves.append(format_point(coords))
+        sorted_moves = " ".join(sorted(gtp_moves))
+        self.respond(sorted_moves)
         return
 
     def play_cmd(self, args):
@@ -275,8 +321,7 @@ class GtpConnection:
             color = color_to_int(board_color)
             if args[1].lower() == "pass":
                 self.board.play_move(PASS, color)
-                self.board.current_player = GoBoardUtil.opponent(color)
-                self.respond()
+                self.respond("Illegal Move: {}".format(board_move));
                 return
             coord = move_to_coord(args[1], self.board.size)
             if coord:
@@ -285,6 +330,9 @@ class GtpConnection:
                 self.error(
                     "Error executing move {} converted from {}".format(move, args[1])
                 )
+                return
+            if self.__isCapture(move, color):
+                self.respond('illegal move: "{} {}" capture'.format(args[0], args[1]))
                 return
             if not self.board.play_move(move, color):
                 self.respond("Illegal Move: {}".format(board_move))
@@ -301,14 +349,18 @@ class GtpConnection:
         """ generate a move for color args[0] in {'b','w'} """
         board_color = args[0].lower()
         color = color_to_int(board_color)
-        move = self.go_engine.get_move(self.board, color)
-        move_coord = point_to_coord(move, self.board.size)
-        move_as_string = format_point(move_coord)
-        if self.board.is_legal(move, color):
-            self.board.play_move(move, color)
-            self.respond(move_as_string)
-        else:
+        moves = [];
+        freePoints = self.board.get_empty_points();
+        for point in freePoints:
+            if(not self.__isCapture(point, color)):
+                if(self.board.is_legal(point, color)):
+                    moves.append[point];
+        
+        if len(moves) == 0:
             self.respond("Illegal move: {}".format(move_as_string))
+        else:
+            choice(moves);
+            
 
 
     """

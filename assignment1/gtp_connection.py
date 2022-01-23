@@ -20,6 +20,7 @@ from board_util import (
 )
 import numpy as np
 import re
+from random import choice
 
 
 class GtpConnection:
@@ -50,6 +51,7 @@ class GtpConnection:
             "genmove": self.genmove_cmd,
             "list_commands": self.list_commands_cmd,
             "play": self.play_cmd,
+            "legal_moves": self.gogui_rules_legal_moves_cmd,
         }
 
         # used for argument checking
@@ -261,8 +263,8 @@ class GtpConnection:
         legal_moves = [];
         freePoints = self.board.get_empty_points();
         for nb in freePoints:
-            if(not self.__isCapture(point, color)):
-                if(self.is_legal(point, color)):
+            if(not self.__isCapture(nb, color)):
+                if(self.is_legal(nb, color)):
                     legal_moves.append(1);
         if(len(legal_moves) == 0):
             if(self.board.current_player == 1):
@@ -302,15 +304,10 @@ class GtpConnection:
         for point in freePoints:
             if(not self.__isCapture(point, color)):
                 if(self.board.is_legal(point, color)):
-                    moves.append[point];
-        gtp_moves = []
-        for move in moves:
-            coords = point_to_coord(move, self.board.size)
-            gtp_moves.append(format_point(coords))
-        sorted_moves = " ".join(sorted(gtp_moves))
-        self.respond(sorted_moves)
+                    moves.append(format_point(point_to_coord(point, self.board.size)));
+        self.respond(' '.join(moves));
         return
-
+            
     def play_cmd(self, args):
         """
         play a move args[1] for given color args[0] in {'b','w'}
@@ -319,10 +316,6 @@ class GtpConnection:
             board_color = args[0].lower()
             board_move = args[1]
             color = color_to_int(board_color)
-            if args[1].lower() == "pass":
-                self.board.play_move(PASS, color)
-                self.respond("Illegal Move: {}".format(board_move));
-                return
             coord = move_to_coord(args[1], self.board.size)
             if coord:
                 move = coord_to_point(coord[0], coord[1], self.board.size)
@@ -331,8 +324,11 @@ class GtpConnection:
                     "Error executing move {} converted from {}".format(move, args[1])
                 )
                 return
+            if(self.__is_occupied(move)):
+                self.error('illegal move: "{} {}" occupied'.format(args[0], args[1]))
+                return
             if self.__isCapture(move, color):
-                self.respond('illegal move: "{} {}" capture'.format(args[0], args[1]))
+                self.error('illegal move: "{} {}" capture'.format(args[0], args[1]))
                 return
             if not self.board.play_move(move, color):
                 self.respond("Illegal Move: {}".format(board_move))
@@ -345,6 +341,12 @@ class GtpConnection:
         except Exception as e:
             self.respond("Error: {}".format(str(e)))
 
+    def __is_occupied(self, move):
+        empty = self.board.get_empty_points();
+        if(move not in empty):
+            return True
+        else:
+            return False
     def genmove_cmd(self, args):
         """ generate a move for color args[0] in {'b','w'} """
         board_color = args[0].lower()
@@ -354,12 +356,16 @@ class GtpConnection:
         for point in freePoints:
             if(not self.__isCapture(point, color)):
                 if(self.board.is_legal(point, color)):
-                    moves.append[point];
-        
+                    moves.append(point);
         if len(moves) == 0:
-            self.respond("Illegal move: {}".format(move_as_string))
+            self.respond("Illegal move: Resign")
+            return
         else:
-            choice(moves);
+            move = choice(moves);
+            self.board.play_move(move, color)
+            move_to_coord = point_to_coord(move, self.board.size)
+            self.respond(format_point(move_to_coord))
+            return
             
 
 
